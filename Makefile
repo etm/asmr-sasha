@@ -1,5 +1,6 @@
 MPS = $(wildcard *.mp3)
-PCMS = $(patsubst %.mp3,%.pcm,$(MPS))
+SMPS = $(wildcard */*.mp3)
+PCMS = $(patsubst %.mp3,%.pcm,$(SMPS) $(MPS))
 
 all: $(PCMS)
 
