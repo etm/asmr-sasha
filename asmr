@@ -20,7 +20,7 @@ def voice_commands(bot)
   gcoms.each do |g,k|
     bot.command(g) do |event|
       voice_bot = event.voice
-      voice_bot.play(File.open(k.sample)) if voice_bot
+      voice_bot.play(File.open(k.rotate![0])) if voice_bot
     end
   end
   [ gcoms, commands ]
@@ -62,7 +62,7 @@ Daemonite.new do
                     "**Admin:** connect, disconnect, reload, stop"
     end
     opts[:bot].command(:ping) do |event|
-      event.respond 'Pong!'
+      event.respond "Fuck off, #{event.author.display_name}!"
     end
   rescue => e
     puts e
