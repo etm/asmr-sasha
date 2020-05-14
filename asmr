@@ -32,10 +32,14 @@ Daemonite.new do
     gcoms, commands = voice_commands opts[:bot]
 
     opts[:bot].command(:connect) do |event|
-      channel = event.user.voice_channel
-      next "You're not in any voice channel!" unless channel
-      opts[:bot].voice_connect(channel)
-      event.respond "Connected to voice channel: #{channel.name}"
+      if event.author.hoist_role.name =~ /Staff/
+        channel = event.user.voice_channel
+        next "You're not in any voice channel!" unless channel
+        opts[:bot].voice_connect(channel)
+        event.respond "Connected to voice channel: #{channel.name}"
+      else
+        event.respond "No, you lowly peasant."
+      end
     end
     opts[:bot].command(:disconnect) do |event|
       channel = event.user.voice_channel
