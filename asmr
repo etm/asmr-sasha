@@ -4,7 +4,7 @@ require 'daemonite'
 
 def voice_commands(bot)
   commands = []
-  Dir[File.join(__dir__,'**/*.pcm')].sort.each do |f|
+  Dir[File.join(__dir__,'**/*.pcm')].uniq.sort.each do |f|
     name = File.basename(f,'.pcm')
     commands << name.to_sym
     bot.command(name.to_sym) do |event|
@@ -61,8 +61,8 @@ Daemonite.new do
     end
 
     opts[:bot].command(:help) do |event|
-      event.respond "**Loose:** #{commands.join(', ')}\n" +
-                    "**Groups:** #{gcoms.keys.join(', ')}\n" +
+      event.respond "**Loose:** #{commands.sort.join(', ')}\n" +
+                    "**Groups:** #{gcoms.keys.sort.join(', ')}\n" +
                     "**Admin:** connect, disconnect, reload, stop"
     end
     opts[:bot].command(:ping) do |event|
