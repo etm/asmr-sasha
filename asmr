@@ -31,6 +31,14 @@ Daemonite.new do
     opts[:bot] = Discordrb::Commands::CommandBot.new token: File.read(File.join(__dir__,'token')).strip, prefix: '!'
     gcoms, commands = voice_commands opts[:bot]
 
+    opts[:bot].voice_state_update do |event|
+      if event.user.current_bot?
+        if opts[:bot].voices.any? && event.channel != event.old_channel
+          opts[:bot].voice_connect(event.channel)
+        end
+      end
+    end
+
     opts[:bot].command(:connect) do |event|
       if event.author.hoist_role&.name !~ /Student/
         channel = event.user.voice_channel
