@@ -1,15 +1,46 @@
 #!/usr/bin/ruby
 require 'discordrb'
 require 'daemonite'
+require 'base64'
+
+class String
+  def justify(len = 80)
+    words = self.scan(/[\w\*\r\n]+/)
+    actual_len = 0
+    output = ""
+    words.each do |w|
+      output += w
+      actual_len += w.length
+      if actual_len >= len
+        output += "\n"
+        actual_len = 0
+      else
+        output += " "
+      end
+    end
+    return output
+  end
+end
 
 def voice_commands(bot)
   commands = []
   Dir[File.join(__dir__,'**/*.pcm')].sort.each do |f|
     name = File.basename(f,'.pcm')
     commands << name.to_sym
-    bot.command(name.to_sym) do |event|
-      voice_bot = event.voice
-      voice_bot.play(File.open(f)) if voice_bot
+    bot.command(name.to_sym) do |event,*args|
+      if event.author.hoist_role&.name !~ /Student/
+        voice_bot = event.voice
+        if voice_bot
+          voice_bot.play(File.open(f))
+          args.each do |ff|
+            fname = Dir.glob('**/' + ff + '.pcm')
+            voice_bot.play(File.open(fname[0])) if fname.length > 0  if voice_bot
+          end
+          nil
+        end
+      else
+        event.respond "Do you feel lucky, punk?"
+      end
     end
   end
   gcoms = {}
@@ -19,8 +50,12 @@ def voice_commands(bot)
   end
   gcoms.each do |g,k|
     bot.command(g) do |event|
-      voice_bot = event.voice
-      voice_bot.play(File.open(k.rotate![0])) if voice_bot
+      if event.author.hoist_role&.name !~ /Student/
+        voice_bot = event.voice
+        voice_bot.play(File.open(k.rotate![0])) if voice_bot
+      else
+        event.respond "Do you feel lucky, punk?"
+      end
     end
   end
   [ gcoms, commands.uniq ]
@@ -29,6 +64,7 @@ end
 Daemonite.new do
   on startup do |opts|
     opts[:bot] = Discordrb::Commands::CommandBot.new token: File.read(File.join(__dir__,'token')).strip, prefix: '!'
+    opts[:bot].debug = true
     gcoms, commands = voice_commands opts[:bot]
 
     opts[:bot].voice_state_update do |event|
@@ -54,13 +90,37 @@ Daemonite.new do
       next "You're not in any voice channel!" unless channel
       opts[:bot].voice_destroy(event.user.server)
     end
+    opts[:bot].command(:reconnect) do |event|
+      opts[:bot].voice_destroy(event.user.server)
+      channel = event.user.voice_channel
+      next "You're not in any voice channel!" unless channel
+      opts[:bot].voice_connect(channel)
+      event.respond "Connected to voice channel: #{channel.name}"
+    end
 
+    opts[:bot].command(:yt) do |event,args|
+      if event.author.hoist_role&.name !~ /Student/
+        voice_bot = event.voice
+        u = args
+        ue = Base64.urlsafe_encode64(u,padding:false)
+
+        unless File.exists?("#{ue}.pcm")
+          event.respond "Sure thing. Will take a while."
+          `youtube-dl -x --audio-format mp3 --audio-quality 0 \"#{u}\" -o .#{ue}.mp3`
+          `ffmpeg -i .#{ue}.mp3 -loglevel 0  -f s16le -ar 48000 -ac 2 #{ue}.pcm`
+          File.unlink(".#{ue}.mp3")
+        end
+
+        event.respond "I'm doin it!"
+        voice_bot.play(File.open("#{ue}.pcm")) if voice_bot
+      end
+    end
     opts[:bot].command(:reload) do |event|
       commands.each do |c|
         opts[:bot].remove_command c
       end
       gcoms, commands = voice_commands opts[:bot]
-      "Available commands: #{commands.join(', ')}"
+      nil
     end
 
     opts[:bot].command(:stop) do |event|
@@ -69,15 +129,22 @@ Daemonite.new do
     end
 
     opts[:bot].command(:help) do |event|
-      event.respond "**Loose:** #{commands.sort.join(', ')}\n" +
-                    "**Groups:** #{gcoms.keys.sort.join(', ')}\n" +
-                    "**Admin:** connect, disconnect, reload, stop"
+      "\n**Loose:** #{commands.sort.join(', ')}".justify.split('\n').each do |m|
+        event.respond m
+      end
+      "\n**Groups:** #{gcoms.keys.sort.join(', ')}".justify.split('\n').each do |m|
+        event.respond m
+      end
+      "\n**Admin:** connect, disconnect, reconnect, reload, stop".justify.split('\n').each do |m|
+        event.respond m
+      end
+      nil
     end
     opts[:bot].command(:ping) do |event|
       event.respond "Fuck off, #{event.author.display_name}!"
     end
   rescue => e
-    puts e
+    puts e.message
   end
   run do |opts|
     opts[:bot].run
