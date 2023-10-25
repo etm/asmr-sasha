@@ -26,11 +26,13 @@ def voice_commands(bot)
   commands = []
   Dir[File.join(__dir__,'**/*.pcm')].sort.each do |f|
     name = File.basename(f,'.pcm')
+    next if name.match(/___/)
     commands << name.to_sym
     bot.command(name.to_sym) do |event,*args|
       if event.author.hoist_role&.name !~ /Student/
         voice_bot = event.voice
         if voice_bot
+          p voice_bot
           voice_bot.play(File.open(f))
           args.each do |ff|
             fname = Dir.glob('**/' + ff + '.pcm')
@@ -45,6 +47,7 @@ def voice_commands(bot)
   end
   gcoms = {}
   Dir[File.join(__dir__,'*/*.pcm')].sort.each do |f|
+    next if f.match(/___/)
     gcoms[File::basename(File::dirname(f)).to_sym] ||= []
     gcoms[File::basename(File::dirname(f)).to_sym] << f
   end
@@ -104,15 +107,41 @@ Daemonite.new do
         u = args
         ue = Base64.urlsafe_encode64(u,padding:false)
 
-        unless File.exists?("#{ue}.pcm")
+        unless File.exist?("___#{ue}.pcm")
           event.respond "Sure thing. Will take a while."
-          `youtube-dl -x --audio-format mp3 --audio-quality 0 \"#{u}\" -o .#{ue}.mp3`
-          `ffmpeg -i .#{ue}.mp3 -loglevel 0  -f s16le -ar 48000 -ac 2 #{ue}.pcm`
+          `yt-dlp -x --audio-format mp3 --audio-quality 0 \"#{u}\" -o .#{ue}.mp3`
+          `ffmpeg -i .#{ue}.mp3 -loglevel 0  -f s16le -ar 48000 -ac 2 ___#{ue}.pcm`
           File.unlink(".#{ue}.mp3")
         end
 
         event.respond "I'm doin it!"
-        voice_bot.play(File.open("#{ue}.pcm")) if voice_bot
+        voice_bot.play(File.open("___#{ue}.pcm")) if voice_bot
+      end
+    end
+    opts[:bot].command(:se) do |event,*args|
+      if event.author.hoist_role&.name !~ /Student/
+        voice_bot = event.voice
+        u = args.join(' ')
+        ue = Base64.urlsafe_encode64(u,padding:false)
+        unless File.exist?("___#{ue}.pcm")
+          `gtts-cli -l en "#{u.gsub(/[^a-zA-Z0-9öäüßÖÄÜ:,!?]/,'')}" -o .#{ue}.mp3`
+          `ffmpeg -i .#{ue}.mp3 -loglevel 0  -f s16le -ar 48000 -ac 2 ___#{ue}.pcm`
+          File.unlink(".#{ue}.mp3")
+        end
+        voice_bot.play(File.open("___#{ue}.pcm")) if voice_bot
+      end
+    end
+    opts[:bot].command(:sd) do |event,*args|
+      if event.author.hoist_role&.name !~ /Student/
+        voice_bot = event.voice
+        u = args.join(' ')
+        ue = Base64.urlsafe_encode64(u,padding:false)
+        unless File.exist?("___#{ue}.pcm")
+          `gtts-cli -l de "#{u.gsub(/[^a-zA-Z0-9öäüßÖÄÜ:,!?]/,'')}" -o .#{ue}.mp3`
+          `ffmpeg -i .#{ue}.mp3 -loglevel 0  -f s16le -ar 48000 -ac 2 ___#{ue}.pcm`
+          File.unlink(".#{ue}.mp3")
+        end
+        voice_bot.play(File.open("___#{ue}.pcm")) if voice_bot
       end
     end
     opts[:bot].command(:reload) do |event|
